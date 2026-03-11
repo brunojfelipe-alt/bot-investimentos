@@ -5,28 +5,70 @@
 #   4 — Portfólio do usuário
 #   5 — Alertas
 #   6 — Notícias
-
+import os
+from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import yfinance as yf
 from tabulate import tabulate
+BASE_DIR = Path(__file__).resolve().parent
+dados_path = BASE_DIR.parent / "dados"
+
+dados_acoes = {}
+
+for arquivo in dados_path.glob("dados_brutos_*.csv"):
+    
+    nome_acao = arquivo.stem.replace("dados_brutos_", "")
+    
+    dado = pd.read_csv(arquivo, header=1)
+    
+    dados_acoes[nome_acao] = dado
+
+
 verde = "\033[92m"
 vermelho = "\033[91m"
 reset = "\033[0m"
 acoes = ["PETR4","VALE3","ITUB4","BBDC4","BBAS3","WEGE3","LREN3","MGLU3","RAIL3","ABEV3"]
 z = 0
 b = 0
-PETR4 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_PETR4.csv", header=1)
-VALE3 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_VALE3.csv", header=1)
-ITUB4 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_ITUB4.csv", header=1)
-BBDC4 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_BBDC4.csv", header=1)
-BBAS3 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_BBAS3.csv", header=1)
-WEGE3 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_WEGE3.csv", header=1)
-LREN3 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_LREN3.csv", header=1)
-RAIL3 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_RAIL3.csv", header=1)
-MGLU3 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_MGLU3.csv", header=1)
-ABEV3 = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_ABEV3.csv", header=1)
+print(dados_path)
+print(dados_path.resolve())
+print(os.getcwd())
+print(dados_acoes.keys())
+for a in acoes:
+
+    dados_old = dados_acoes[a]
+
+    ultima_data = pd.to_datetime(dados_old.iloc[-1, 0]).normalize()
+    
+    hoje = pd.Timestamp.today().normalize()
+
+
+    if ultima_data != hoje:
+
+        novos = yf.download(f"{a}.SA", start=ultima_data)
+        novos.columns = novos.columns.droplevel(1)
+        novos.reset_index(inplace=True)
+        if ultima_data != novos.iloc[0, 0].normalize():
+            dados = pd.concat([dados_old, novos])
+
+            dados = dados.drop_duplicates(subset= [dados.columns[0]])
+
+            dados.to_csv(dados_path / f"dados_brutos_{a}.csv", index=False)
+            dados_acoes[a] = dados
+            print(f"{a} atualizado")
+PETR4 = dados_acoes["PETR4"]
+VALE3 = dados_acoes["VALE3"]
+ITUB4 = dados_acoes["ITUB4"]
+BBDC4 = dados_acoes["BBDC4"]
+BBAS3 = dados_acoes["BBAS3"]
+WEGE3 = dados_acoes["WEGE3"]
+LREN3 = dados_acoes["LREN3"]
+RAIL3 = dados_acoes["RAIL3"]
+MGLU3 = dados_acoes["MGLU3"]
+ABEV3 = dados_acoes["ABEV3"]
+
 
 def c_p(valor):
     if valor > 0:
@@ -68,32 +110,11 @@ d = {
 df = pd.DataFrame(d)
 df["Score"] = df["Score"].round(2)
 ranking = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
-for a in acoes:
-
-    caminho = f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_{a}.csv"
-
-    dados_old = pd.read_csv(caminho)
-
-    ultima_data = pd.to_datetime(dados_old.iloc[-1, 0]).normalize()
-    
-    hoje = pd.Timestamp.today().normalize()
 
 
-    if ultima_data != hoje:
 
-        novos = yf.download(f"{a}.SA", start=ultima_data)
-        novos.columns = novos.columns.droplevel(1)
-        novos.reset_index(inplace=True)
-        if ultima_data != novos.iloc[0, 0].normalize():
-            dados = pd.concat([dados_old, novos])
-
-            dados = dados.drop_duplicates(subset= [dados.columns[0]])
-
-            dados.to_csv(caminho, index=False)
-
-            print(f"{a} atualizado")
 while z == 0:
-    inicio = input("Digite o número do modo de visualização:\n"
+    inicio = input("Digite o número do modo de visualização:"
     "1 — Ranking de ações\n"
     "2 — Análise de uma ação\n"
     "3 — Backtest\n"
@@ -170,7 +191,7 @@ while z == 0:
             anal = input("Digite o nome da ação que deseja analisar (PETR4, VALE3, ITUB4, etc): ")
             if anal in acoes:
                 print(f"Analisando a ação {anal}.SA")
-                dados = pd.read_csv(f"C:\\Users\\Bruno\\Desktop\\programacao\\Projetos\\bot_invest\\dados\\dados_brutos_{anal}.csv", header=1)
+                dados = pd.read_csv(dados_path / f"dados_brutos_{anal}.csv", header=1)
                 preco = dados.iloc[-1, 1]
                 r1 = ((dados.iloc[-1, 1] - dados.iloc[-21, 1]) / dados.iloc[-21, 1])
                 r6 = ((dados.iloc[-1, 1] - dados.iloc[-126, 1]) / dados.iloc[-126, 1])
@@ -298,12 +319,12 @@ while z == 0:
                 pla = {
                 "Ação": actions,
                 "Preço Médio Atual": [f"{pm:.2f}" for pm in pms],
-                "Variação Diária": [f"{va*100:+.2f}%"for va in vars_],
-                "Retorno 1M": [f"{r*100:+.2f}%" for r in retornos_1m],
-                "Retorno 6M": [f"{r*100:+.2f}%" for r in retornos_6m],
-                "Retorno 12M": [f"{r*100:+.2f}%" for r in retornos_12m],
-                "Volatilidade": [f"{v*100:+.2f}%" for v in volatilidades],
-                "Momentum": [f"{m*100:+.2f}%" for m in momentums],
+                "Variação Diária": [c_p(va * 100)for va in vars_],
+                "Retorno 1M": [c_p(r * 100) for r in retornos_1m],
+                "Retorno 6M": [c_p(r * 100) for r in retornos_6m],
+                "Retorno 12M": [c_p(r * 100) for r in retornos_12m],
+                "Volatilidade": [c_p(v * 100) for v in volatilidades],
+                "Momentum": [c_p(m * 100) for m in momentums],
                 "Score": scores
                 }
                 df2 = pd.DataFrame(pla)
