@@ -114,7 +114,7 @@ ranking = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
 
 
 while z == 0:
-    inicio = input("Digite o número do modo de visualização:"
+    inicio = input("Digite o número do modo de visualização:\n"
     "1 — Ranking de ações\n"
     "2 — Análise de uma ação\n"
     "3 — Backtest\n"
