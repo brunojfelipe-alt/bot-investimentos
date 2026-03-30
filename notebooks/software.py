@@ -41,23 +41,43 @@ for a in acoes:
     dados_old = dados_acoes[a]
 
     ultima_data = pd.to_datetime(dados_old.iloc[-1, 0]).normalize()
-    
     hoje = pd.Timestamp.today().normalize()
-
 
     if ultima_data != hoje:
 
-        novos = yf.download(f"{a}.SA", start=ultima_data)
-        novos.columns = novos.columns.droplevel(1)
-        novos.reset_index(inplace=True)
-        if ultima_data != novos.iloc[0, 0].normalize():
-            dados = pd.concat([dados_old, novos])
+        novos = yf.download(f"{a}.SA", start=ultima_data + pd.Timedelta(days=1))
 
-            dados = dados.drop_duplicates(subset= [dados.columns[0]])
+        if novos.empty:
+            continue
+
+        if isinstance(novos.columns, pd.MultiIndex):
+            novos.columns = novos.columns.droplevel(1)
+
+        novos.reset_index(inplace=True)
+
+        novos.iloc[:, 0] = pd.to_datetime(novos.iloc[:, 0], errors="coerce")
+
+        novos = novos.dropna(subset=[novos.columns[0]])
+
+        if ultima_data != novos.iloc[-1, 0].normalize():
+
+            novos = novos.loc[:, ~novos.columns.duplicated()]
+            dados_old = dados_old.loc[:, ~dados_old.columns.duplicated()]
+
+            colunas_comuns = dados_old.columns.intersection(novos.columns)
+            novos = novos[colunas_comuns]
+            dados_old = dados_old[colunas_comuns]
+
+            dados = pd.concat([dados_old, novos], ignore_index=True)
+
+            dados = dados.drop_duplicates(subset=[dados.columns[0]])
 
             dados.to_csv(dados_path / f"dados_brutos_{a}.csv", index=False)
+
             dados_acoes[a] = dados
+
             print(f"{a} atualizado")
+
 PETR4 = dados_acoes["PETR4"]
 VALE3 = dados_acoes["VALE3"]
 ITUB4 = dados_acoes["ITUB4"]
@@ -68,7 +88,7 @@ LREN3 = dados_acoes["LREN3"]
 RAIL3 = dados_acoes["RAIL3"]
 MGLU3 = dados_acoes["MGLU3"]
 ABEV3 = dados_acoes["ABEV3"]
-
+soma3 = 0
 
 def c_p(valor):
     if valor > 0:
@@ -234,7 +254,7 @@ while z == 0:
 
 
 
-    """)
+    """) 
 
 
 
@@ -277,6 +297,7 @@ while z == 0:
     elif inicio == "4":
         print("Portfólio do usuário")
         ind = []
+        qnt = []
         actions = []
         retornos_1m = []
         retornos_6m = []
@@ -286,27 +307,31 @@ while z == 0:
         scores = []
         pms = []
         vars_ = []
-
+        valor_at =[]
+        volc = 0
+        valor_tot = float(input("Quanto você gastou no seu portifólio: "))
         while True:
 
-            ac = input("Digite a ação (PETR4, VALE3, ITUB4, etc.):\n"
+            ac = input("Digite sua ação (PETR4, VALE3, ITUB4, etc.):\n"
             "1 - Mostrar Portifólio\n"
             "0 - Sair ")
-            
             if ac == "0":
                 break
 
             elif ac == "1":
-            
+                xa = 0
+                rae = 0
+                volc = 0
                 for i in ind:
                     va = ((acoes_dados[ind.index(i)].iloc[-1, 1] - acoes_dados[ind.index(i)].iloc[-2, 1])/ acoes_dados[ind.index(i)].iloc[-2, 1])
-                    pm = (acoes_dados[ind[i]].iloc[-1, 1])
+                    pm = (acoes_dados[ind.index(i)].iloc[-1, 1])
                     r1 = ((acoes_dados[ind.index(i)].iloc[-1, 1] - acoes_dados[ind.index(i)].iloc[-21, 1]) / acoes_dados[ind.index(i)].iloc[-21, 1])
                     r6 = ((acoes_dados[ind.index(i)].iloc[-1, 1] - acoes_dados[ind.index(i)].iloc[-126, 1]) / acoes_dados[ind.index(i)].iloc[-126, 1])
                     r12 = ((acoes_dados[ind.index(i)].iloc[-1, 1] - acoes_dados[ind.index(i)].iloc[-252, 1]) / acoes_dados[ind.index(i)].iloc[-252, 1])
                     v = acoes_dados[ind.index(i)].iloc[:, 1].pct_change().tail(252).std() * (252 ** 0.5)
                     m = r12 - r1
                     s = 0.35 * m + 0.30 * r6 + 0.25 * r12 - 0.10 * v
+                    val_at = (acoes_dados[ind.index(i)].iloc[-1, 1] * (qnt[ind.index(i)]))
                     retornos_1m.append(r1)
                     retornos_6m.append(r6)
                     retornos_12m.append(r12)
@@ -316,6 +341,8 @@ while z == 0:
                     pms.append(pm)
                     vars_.append(va)
                     actions.append(acoes[i])
+                    valor_at.append(val_at)
+                    soma3 = soma3 + val_at
                 pla = {
                 "Ação": actions,
                 "Preço Médio Atual": [f"{pm:.2f}" for pm in pms],
@@ -325,18 +352,80 @@ while z == 0:
                 "Retorno 12M": [c_p(r * 100) for r in retornos_12m],
                 "Volatilidade": [c_p(v * 100) for v in volatilidades],
                 "Momentum": [c_p(m * 100) for m in momentums],
-                "Score": scores
+                "Score": scores 
                 }
                 df2 = pd.DataFrame(pla)
                 df2["Score"] = df2["Score"].round(2)
-                print(tabulate(df2, headers = "keys", tablefmt="simple_grid", numalign="center", stralign="center"))
+                pla1 = {
+                "Ação": actions,
+                "Quantidade": [q for q in qnt],
+                "Preço Médio Atual": [f"{pm:.2f}" for pm in pms],
+                "Valor Total": [v for v in valor_at],
+                "Peso": [f"{(v / soma3)* 100 :.2f}%" for v in valor_at],
+                "Score": scores
+                }
+                df3 = pd.DataFrame(pla1)
+                df3["Score"] = df3["Score"].round(2)
+                for a in actions:
+                   rae = rae + pla["Retorno 12M"].iloc[xa] * pla1["Peso"].iloc[xa]
+                   xa = xa + 1
+
+                print("" \
+                f"""
+    ==================================================
+                {f"Seu Portifólio":^26}
+    ==================================================
+
+    {f"Valor total gasto:":<30}{valor_tot:.2f}R$
+    {f"Valor Das Ações:":<30}{soma3:.2f}R$
+    {f"Lucro:":<30}{soma3 - valor_tot:.2f}R$ ou {((soma3 - valor_tot)/valor_tot)*100:.2f}%
+    {f"Número de ativos:":<30}{len(actions)}
+                
+
+                
+    ---------------- Ativos ----------------
+    """
+    )
+                
+
+                print(tabulate(df3, headers="keys", tablefmt="github", numalign="center", stralign="center"))
+
+                
+                print(f"""
+    ---------------- Métricas Gerais ----------------
+
+    Retorno anual esperado:  {rae}
+    Volatilidade: "          {volc}%
+    Sharpe Ratio: "          [em desenvolvimento]
+    Drawdown máximo: "       [em desenvolvimento]
+
+
+
+
+
+    ---------------- Análise Automática ----------------
+
+    [em desenvolvimento]
+
+    O sistema irá analisar:
+    - concentração da carteira
+    - risco do portfólio
+    - qualidade dos ativos
+    - diversificação
+
+    Retornando Recomendações 
+
+
+
+
+    """)
                 break
             elif ac in acoes:
                 ind.append(acoes.index(ac))
             else:
                 print("Não Possuimos essa ação")
                 pass
-
+            qnt.append(int(input(f"Digite a quantidade de ações {ac} que você possui \n")))
 
         
                 
