@@ -65,6 +65,11 @@ for a in acoes:
             dados_old = dados_old.loc[:, ~dados_old.columns.duplicated()]
 
             colunas_comuns = dados_old.columns.intersection(novos.columns)
+
+            
+            if len(colunas_comuns) == 0:
+                continue
+
             novos = novos[colunas_comuns]
             dados_old = dados_old[colunas_comuns]
 
